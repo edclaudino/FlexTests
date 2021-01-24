@@ -1,6 +1,6 @@
 using System;
 
-namespace PortalDeNoticias.Models
+namespace PortalDeNoticias.Models.ViewModels
 {
     public class ErrorViewModel
     {
