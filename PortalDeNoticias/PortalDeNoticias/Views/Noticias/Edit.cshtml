@@ -6,10 +6,10 @@
 
 <h1>Edit</h1>
 
-<h4>Noticia</h4>
+<h4>Notícia</h4>
 <hr />
 <div class="row">
-    <div class="col-md-4">
+    <div class="col-md-6">
         <form asp-action="Edit">
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
             <input type="hidden" asp-for="Id" />
@@ -20,7 +20,7 @@
             </div>
             <div class="form-group">
                 <label asp-for="Texto" class="control-label"></label>
-                <input asp-for="Texto" class="form-control" />
+                <textarea asp-for="Texto" class="form-control" rows="10"></textarea>                
                 <span asp-validation-for="Texto" class="text-danger"></span>
             </div>
             <div class="form-group">
