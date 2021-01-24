@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
@@ -7,22 +8,26 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using PortalDeNoticias.Data;
 using PortalDeNoticias.Models;
+using PortalDeNoticias.Models.ViewModels;
+using PortalDeNoticias.Services;
+using PortalDeNoticias.Services.Exceptions;
 
 namespace PortalDeNoticias.Controllers
 {
     public class AutorsController : Controller
     {
-        private readonly PortalDeNoticiasContext _context;
+        private readonly AutorService _autorService;
 
-        public AutorsController(PortalDeNoticiasContext context)
+        public AutorsController(AutorService autorService)
         {
-            _context = context;
+            _autorService = autorService;
         }
 
         // GET: Autors
         public async Task<IActionResult> Index()
         {
-            return View(await _context.Autor.ToListAsync());
+            var list = await _autorService.FindAllAsync();
+            return View(list);
         }
 
         // GET: Autors/Details/5
@@ -30,16 +35,26 @@ namespace PortalDeNoticias.Controllers
         {
             if (id == null)
             {
-                return NotFound();
+                return RedirectToAction(nameof(Error), new { message = "Id não fornecido" });
             }
 
-            var autor = await _context.Autor.FirstOrDefaultAsync(m => m.Id == id);
+            var autor = await _autorService.FindByIdAsync(id.Value); ;
             if (autor == null)
             {
-                return NotFound();
+                RedirectToAction(nameof(Error), new { message = "Autor não encontrado" });
             }
 
             return View(autor);
+        }
+
+        private IActionResult Error(string message)
+        {
+            var viewModel = new ErrorViewModel
+            {
+                Message = message,
+                RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier
+            };
+            return View(viewModel);
         }
 
         // GET: Autors/Create
@@ -55,13 +70,12 @@ namespace PortalDeNoticias.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("Id,Nome")] Autor autor)
         {
-            if (ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
-                _context.Add(autor);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
+                return View(autor);
             }
-            return View(autor);
+            await _autorService.InsertAsync(autor);
+            return RedirectToAction(nameof(Index));            
         }
 
         // GET: Autors/Edit/5
@@ -69,13 +83,13 @@ namespace PortalDeNoticias.Controllers
         {
             if (id == null)
             {
-                return NotFound();
+                return RedirectToAction(nameof(Error), new { message = "Id não fornecido" });
             }
 
-            var autor = await _context.Autor.FindAsync(id);
+            var autor = await _autorService.FindByIdAsync(id.Value);
             if (autor == null)
             {
-                return NotFound();
+                return RedirectToAction(nameof(Error), new { message = "Autor não encontrado" });
             }
             return View(autor);
         }
@@ -87,32 +101,28 @@ namespace PortalDeNoticias.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("Id,Nome")] Autor autor)
         {
+            if (!ModelState.IsValid)
+            {
+                return View(autor);
+            }
             if (id != autor.Id)
             {
-                return NotFound();
+                return RedirectToAction(nameof(Error), new { message = "Id não correspondem" });
             }
 
-            if (ModelState.IsValid)
+            try
             {
-                try
-                {
-                    _context.Update(autor);
-                    await _context.SaveChangesAsync();
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!AutorExists(autor.Id))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
+                await _autorService.UpdateAsync(autor);
                 return RedirectToAction(nameof(Index));
             }
-            return View(autor);
+            catch (NotFoundException e)
+            {
+                return RedirectToAction(nameof(Error), new { message = e.Message });
+            }
+            catch (DbConcurrencyException e)
+            {
+                return RedirectToAction(nameof(Error), new { message = e.Message });
+            }
         }
 
         // GET: Autors/Delete/5
@@ -120,13 +130,13 @@ namespace PortalDeNoticias.Controllers
         {
             if (id == null)
             {
-                return NotFound();
+                return RedirectToAction(nameof(Error), new { message = "Id não fornecido" });
             }
 
-            var autor = await _context.Autor.FirstOrDefaultAsync(m => m.Id == id);
+            var autor = await _autorService.FindByIdAsync(id.Value);
             if (autor == null)
             {
-                return NotFound();
+                return RedirectToAction(nameof(Error), new { message = "Autor não encontrado" });
             }
 
             return View(autor);
@@ -137,15 +147,15 @@ namespace PortalDeNoticias.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var autor = await _context.Autor.FindAsync(id);
-            _context.Autor.Remove(autor);
-            await _context.SaveChangesAsync();
-            return RedirectToAction(nameof(Index));
-        }
-
-        private bool AutorExists(int id)
-        {
-            return _context.Autor.Any(e => e.Id == id);
+            try
+            {
+                await _autorService.RemoveAsync(id);
+                return RedirectToAction(nameof(Index));
+            }
+            catch (IntegrityException e)
+            {
+                return RedirectToAction(nameof(Error), new { message = e.Message });
+            }
         }
     }
 }

@@ -62,7 +62,7 @@ namespace PortalDeNoticias.Controllers
             var obj = await _noticiaService.FindByIdAsync(id.Value);
             if (obj == null)
             {
-                return RedirectToAction(nameof(Error), new { message = "Notícia não encontrada" }); ;
+                return RedirectToAction(nameof(Error), new { message = "Notícia não encontrada" });
             }
 
             return View(obj);
