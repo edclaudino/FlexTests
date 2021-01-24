@@ -1,13 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace PortalDeNoticias.Models
 {
     public class Autor
     {
         public int Id { get; set; }
+        [Required(ErrorMessage = "{0} é obrigatório")]
         public string Nome { get; set; }
         public ICollection<Noticia> Noticias { get; set; } = new List<Noticia>();
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
@@ -7,145 +8,153 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using PortalDeNoticias.Data;
 using PortalDeNoticias.Models;
+using PortalDeNoticias.Models.ViewModels;
+using PortalDeNoticias.Services;
+using PortalDeNoticias.Services.Exceptions;
 
 namespace PortalDeNoticias.Controllers
 {
     public class NoticiasController : Controller
     {
-        private readonly PortalDeNoticiasContext _context;
+        private readonly NoticiaService _noticiaService;
+        private readonly AutorService _autorService;
 
-        public NoticiasController(PortalDeNoticiasContext context)
+        public NoticiasController(NoticiaService noticiaService, AutorService autorService)
         {
-            _context = context;
+            _noticiaService = noticiaService;
+            _autorService = autorService;
         }
 
-        // GET: Noticias
         public async Task<IActionResult> Index()
         {
-            return View(await _context.Noticia.ToListAsync());
+            var list = await _noticiaService.FindAllAsync();
+            return View(list);
         }
 
-        // GET: Noticias/Details/5
-        public async Task<IActionResult> Details(int? id)
+        public async Task<IActionResult> Create()
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var noticia = await _context.Noticia.FirstOrDefaultAsync(m => m.Id == id);
-            if (noticia == null)
-            {
-                return NotFound();
-            }
-
-            return View(noticia);
+            var autors = await _autorService.FindAllAsync();
+            var viewModel = new NoticiaFormViewModel { Autors = autors };
+            return View(viewModel);
         }
 
-        // GET: Noticias/Create
-        public IActionResult Create()
-        {
-            return View();
-        }
-
-        // POST: Noticias/Create
-        // To protect from overposting attacks, enable the specific properties you want to bind to, for 
-        // more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id,Titulo,Texto")] Noticia noticia)
+        public async Task<IActionResult> Create(Noticia noticia)
         {
-            if (ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
-                _context.Add(noticia);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
+                var autors = await _autorService.FindAllAsync();
+                var viewModel = new NoticiaFormViewModel { Noticia = noticia, Autors = autors };
+                return View(viewModel);
             }
-            return View(noticia);
+            await _noticiaService.InsertAsync(noticia);
+            return RedirectToAction(nameof(Index));
         }
 
-        // GET: Noticias/Edit/5
-        public async Task<IActionResult> Edit(int? id)
-        {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var noticia = await _context.Noticia.FindAsync(id);
-            if (noticia == null)
-            {
-                return NotFound();
-            }
-            return View(noticia);
-        }
-
-        // POST: Noticias/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to, for 
-        // more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Titulo,Texto")] Noticia noticia)
-        {
-            if (id != noticia.Id)
-            {
-                return NotFound();
-            }
-
-            if (ModelState.IsValid)
-            {
-                try
-                {
-                    _context.Update(noticia);
-                    await _context.SaveChangesAsync();
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!NoticiaExists(noticia.Id))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
-                return RedirectToAction(nameof(Index));
-            }
-            return View(noticia);
-        }
-
-        // GET: Noticias/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null)
             {
-                return NotFound();
+                return RedirectToAction(nameof(Error), new { message = "Id não fornecido"});
             }
 
-            var noticia = await _context.Noticia.FirstOrDefaultAsync(m => m.Id == id);
-            if (noticia == null)
+            var obj = await _noticiaService.FindByIdAsync(id.Value);
+            if (obj == null)
             {
-                return NotFound();
+                return RedirectToAction(nameof(Error), new { message = "Notícia não encontrada" }); ;
             }
 
-            return View(noticia);
+            return View(obj);
         }
 
-        // POST: Noticias/Delete/5
-        [HttpPost, ActionName("Delete")]
+        [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteConfirmed(int id)
+        public async Task<IActionResult> Delete(int id)
         {
-            var noticia = await _context.Noticia.FindAsync(id);
-            _context.Noticia.Remove(noticia);
-            await _context.SaveChangesAsync();
-            return RedirectToAction(nameof(Index));
+            try
+            {
+                await _noticiaService.RemoveAsync(id);
+                return RedirectToAction(nameof(Index));
+            }
+            catch (IntegrityException e)
+            {
+                return RedirectToAction(nameof(Error), new { message = e.Message });
+            }
         }
 
-        private bool NoticiaExists(int id)
+        public async Task<IActionResult> Details(int? id)
         {
-            return _context.Noticia.Any(e => e.Id == id);
+            if (id == null)
+            {
+                return RedirectToAction(nameof(Error), new { message = "Id não fornecido" });
+            }
+
+            var obj = await _noticiaService.FindByIdAsync(id.Value);
+            if (obj == null)
+            {
+                return RedirectToAction(nameof(Error), new { message = "Notícia não encontrada" });
+            }
+
+            return View(obj);
+        }
+
+        public async Task<IActionResult> Edit(int? id)
+        {
+            if (id == null)
+            {
+                return RedirectToAction(nameof(Error), new { message = "Id não fornecido" });
+            }
+
+            var obj = await _noticiaService.FindByIdAsync(id.Value);
+            if (obj == null)
+            {
+                return RedirectToAction(nameof(Error), new { message = "Notícia não encontrada" });
+            }
+
+            List<Autor> autors = await _autorService.FindAllAsync();
+            NoticiaFormViewModel viewModel = new NoticiaFormViewModel { Noticia = obj, Autors = autors };
+            return View(viewModel);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(int id, Noticia noticia)
+        {
+            if (!ModelState.IsValid)
+            {
+                var autors = await _autorService.FindAllAsync();
+                var viewModel = new NoticiaFormViewModel { Noticia = noticia, Autors = autors };
+                return View(viewModel);
+            }
+            if (id != noticia.Id)
+            {
+                return RedirectToAction(nameof(Error), new { message = "Id não correspondem" });
+            }
+
+            try
+            {
+                await _noticiaService.UpdateAsync(noticia);
+                return RedirectToAction(nameof(Index));
+            }
+            catch (NotFoundException e)
+            {
+                return RedirectToAction(nameof(Error), new { message = e.Message });
+            }
+            catch (DbConcurrencyException e)
+            {
+                return RedirectToAction(nameof(Error), new { message = e.Message });
+            }
+        }
+
+        public IActionResult Error(string message)
+        {
+            var viewModel = new ErrorViewModel
+            {
+                Message = message,
+                RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier
+            };
+            return View(viewModel);
         }
     }
 }
