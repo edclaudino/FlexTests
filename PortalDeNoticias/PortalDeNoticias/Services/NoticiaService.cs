@@ -19,7 +19,53 @@ namespace PortalDeNoticias.Services
 
         public async Task<List<Noticia>> FindAllAsync()
         {
-            return await _context.Noticia.ToListAsync();
+            return await _context.Noticia.Include(obj => obj.Autor).ToListAsync();
+        }
+
+        public async Task<List<Noticia>> FindByTextAsync(string textoConsulta)
+        {
+            var result = from obj in _context.Noticia select obj;
+
+            if (string.IsNullOrEmpty(textoConsulta))
+            {
+                return await result
+                .Include(x => x.Autor)
+                .OrderBy(x => x.Titulo)
+                .ToListAsync();
+            }
+
+            var resultTitulo = result;
+            resultTitulo = resultTitulo.Where(x => x.Titulo.Contains(textoConsulta));
+            var hasTitulo = await resultTitulo.AnyAsync();
+            if (!hasTitulo)
+            {
+                var resultTexto = result;
+                resultTexto = resultTexto.Where(x => x.Texto.Contains(textoConsulta));
+                var hasTexto = await resultTexto.AnyAsync();
+                if (!hasTexto)
+                {
+                    var resultAutor = result;
+                    resultAutor = resultAutor.Where(x => x.Autor.Nome.Contains(textoConsulta));
+                    var hasAutor = await resultAutor.AnyAsync();
+                    if (hasAutor)
+                    {
+                        result = resultAutor;
+                    }
+                }
+                else
+                {
+                    result = resultTexto;
+                }
+            }
+            else
+            {
+                result = resultTitulo;
+            }
+            
+            return await result
+                .Include(x => x.Autor)
+                .OrderBy(x => x.Titulo)
+                .ToListAsync();
         }
 
         public async Task InsertAsync(Noticia obj)

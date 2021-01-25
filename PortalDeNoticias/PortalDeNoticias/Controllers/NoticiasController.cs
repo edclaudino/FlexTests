@@ -31,6 +31,18 @@ namespace PortalDeNoticias.Controllers
             return View(list);
         }
 
+        public async Task<IActionResult> Search(string textoConsulta)
+        {
+            if (string.IsNullOrEmpty(textoConsulta))
+            {
+                var list = await _noticiaService.FindAllAsync();
+                return View(list);
+            }
+            ViewData["textoConsulta"] = textoConsulta;
+            var result = await _noticiaService.FindByTextAsync(textoConsulta);
+            return View(result);
+        }
+
         public async Task<IActionResult> Create()
         {
             var autors = await _autorService.FindAllAsync();
