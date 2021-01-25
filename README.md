@@ -1,5 +1,5 @@
 # FlexTests
 
-Banco de dados utilizado: MySQL
-Usuário: developer
+Banco de dados utilizado: MySQL <br>
+Usuário: developer <br>
 Senha: 1234567
